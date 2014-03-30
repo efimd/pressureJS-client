@@ -11,7 +11,7 @@ var WebSocket = require('ws');
 
 var utils = require('./lib/utils');
 
-var ws = new WebSocket('ws://localhost:8080');
+var ws = new WebSocket('ws://localhost:8081/ui');
 
 var config = {};
 var statInterval;
@@ -45,6 +45,16 @@ ws.on('message', function(data, flags) {
             type : 'ready'
         }));
     }
+    else if (msg.type == 'initTest') {
+        var test = {
+            name : msg.name,
+            config : msg.config,
+            testConfig : msg.testConfig
+        };
+
+        runTest(test);
+
+    }
 
 });
 
@@ -56,6 +66,12 @@ function init(cfg) {
     if (cfg.stat_period) {
         statInterval = setInterval(reportStats, cfg.stat_period);
     }
+}
+
+
+function runTest(test) {
+
+
 }
 
 function reportStats() {

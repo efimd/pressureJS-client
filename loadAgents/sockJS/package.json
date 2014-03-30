@@ -1,0 +1,22 @@
+{
+    "name": "sockJSLoadAgent",
+    "description": "Stress Testing",
+    "author": {
+        "name": "Efim Dimenstein",
+        "email": "efim@liveperson.com",
+        "url": "http://www.efimd.com/"
+    },
+    "version": "0.0.1",
+    "dependencies": {
+        "async": "latest",
+        "measured": "latest",
+        "node-uuid": "latest",
+        "ws": "latest",
+        "node-statsd": "latest"
+    },
+    "readme": "README.md",
+    "private": true,
+    "engines": {
+        "node": ">= 0.10.x"
+    }
+}
