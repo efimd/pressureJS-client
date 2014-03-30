@@ -1,11 +1,3 @@
-/**
- * Created with IntelliJ IDEA.
- * User: efim
- * Date: 3/30/14
- * Time: 2:51 PM
- * To change this template use File | Settings | File Templates.
- */
-
 var async = require('async');
 var http = require('http');
 var StatsD = require('node-statsd').StatsD;
@@ -13,89 +5,62 @@ var dns = require('dns');
 
 http.globalAgent.maxSockets = 100000;
 
-var Stats = require('.lib/stats.js');
-var sjsc_xhr = require('.lib/clients/sockjs-client-xhr');
-var sjsc_ws = require('.lib/clients/sockjs-client-ws');
+var Stats = require('./lib/stats.js');
+var sjsc_xhr = require('./lib/clients/sockjs-client-xhr');
+var sjsc_ws = require('./lib/clients/sockjs-client-ws');
 
 var numCPUs = require('os').cpus().length;
 
-var config = require('.conf/config.js');
-var cfg = config;
+var utils = require('./lib/utils');
+
+var defaultConfig = require('./conf/default.js');
+var cfg = defaultConfig;
 
 
 console.log('Initializing...');
 
 var statsdClient = null;
+var stats = null;
 
-if (cfg.statsd) {
-    statsdClient = new StatsD({
-        host : cfg.statsd.host,
-        port : cfg.statsd.port,
-        prefix : cfg.statsd.prefix,
-        suffix : cfg.statsd.suffix,
-        globalize : cfg.statsd.globalize,
-        cacheDns : cfg.statsd.cacheDns
-    });
-
-    statsdClient.socket.on('error', function(error) {
-        console.error("Error in socket: ", error);
-        return;
-    });
-}
-
-var stats = new Stats();
-
-
-if (cfg.cacheDns && !isIpv4(cfg.host)) {
-    dns.resolve4(cfg.host, function (err, addresses) {
-        if (err) {
-            throw err;
-        }
-        cfg.url = getUrl(addresses[0]);
-        start();
-    });
-
-}
-else {
-    cfg.url = getUrl();
-    start();
-}
-
-function getUrl(ip) {
-    var url = cfg.protocol + '://';
-
-    url+= ip || cfg.host;
-
-    if (cfg.port) {
-        url += ':'+ cfg.port;
-    }
-
-    if (cfg.path) {
-        url += '/' + cfg.path;
-    }
-
-    return url;
-}
-
-function start() {
-
-    [
-        ''
-        , 'PressureJS:       #cpus:'+numCPUs+'                     version: '+ cfg._version
-        , ''
-        , 'Pressure summary:'
-        , '- ' + cfg.url + ' url'
-        , '- ' + cfg.ws_conn + ' concurrent/parallel WS SockJS connections.'
-        , '- '+ cfg.xhr_conn + ' concurrent/parallel XHR Streaming SockJS connections.'
-        , '- '+ cfg.rampup + ' seconds to ramp up.'
-        , '- '+ cfg.delay + ' ms to delay between messages.'
-        , '- '+ cfg.messageSize + ' chars message size.'
-        , '- '+ cfg.totalTime + ' seconds total run time.'
-    ].forEach(function stdout(line) {
-            console.log(line);
+function init (test, cb) {
+    if (cfg.statsd) {
+        statsdClient = new StatsD({
+            host : cfg.statsd.host,
+            port : cfg.statsd.port,
+            prefix : cfg.statsd.prefix,
+            suffix : cfg.statsd.suffix,
+            globalize : cfg.statsd.globalize,
+            cacheDns : cfg.statsd.cacheDns
         });
 
+        statsdClient.socket.on('error', function(error) {
+            console.error("Error in STATSD socket: ", error);
+            cb("Error in STATSD socket: ", error);
+            return;
+        });
+    }
 
+    stats = new Stats();
+
+    if (cfg.cacheDns && !utils.isIpv4(cfg.host)) {
+        dns.resolve4(cfg.host, function (err, addresses) {
+            if (err) {
+                throw err;
+            }
+            cfg.url = utils.getUrl(cfg, addresses[0]);
+            cb();
+        });
+
+    }
+    else {
+        cfg.url = utils.getUrl(cfg);
+        cb();
+    }
+}
+
+
+
+function start(test, cb) {
 
     var jobs = [];
     var total_jobs = cfg.ws_conn + cfg.xhr_conn;
@@ -103,6 +68,8 @@ function start() {
     var xhr_cnt = cfg.xhr_conn;
 
     var delay = Math.ceil((cfg.rampup*1000) / (total_jobs-1));
+
+    utils.printDescription(cfg);
 
     for (var i=0; i<total_jobs; i++) {
         var type = '';
@@ -254,43 +221,17 @@ function start() {
     }
 }
 
-process.on('uncaughtException', function(err) {
-    // handle the error safely
-    console.log(err);
-});
-
-function isIpv4(ip) {
-    var d = ip.split('.'), i = d.length;
-    if (i!=4) {
-        return false;
-    }
-    var ok = true;
-    while (i-- && ok) {
-        ok = false;
-        if (d[i].length!=0) {
-            if (parseInt(d[i])) {
-                if (d[i]>-1 && d[i]<256) {
-                    ok = true;
-                }
-            }
-        }
-    }
-    return ok;
-}
-
-function showProgress() {
-    setInterval(function () {
-        statsdClient.timing('ws_latency', stats.ws.latency.toJSON().mean);
-        statsdClient.timing('xhr_latency', stats.xhr.latency.toJSON().mean);
-//        console.log(stats.ws.latency.toJSON().mean);
-        var d = new Date();
-        var h = d.getHours();
-        var m = d.getMinutes();
-        var s = d.getSeconds();
-
-        var d_str = h + ':' + m + ':' +s;
-        console.log(d_str + ' #conn: ws: ' + (stats.ws.connections.toJSON() - stats.ws.disconnects.toJSON()) + ' msgs: ' + stats.ws.msgs_sent.toJSON() + '/' + stats.ws.msgs_received.toJSON() + ' xhr: ' + (stats.xhr.connections.toJSON() - stats.xhr.disconnects.toJSON())+ ' msgs: ' + stats.xhr.msgs_sent.toJSON() + '/' + stats.xhr.msgs_received.toJSON() );
-    }, 1000);
-}
 
 
+
+
+
+
+
+
+
+
+
+
+module.exports.init = init;
+module.exports.start = start;

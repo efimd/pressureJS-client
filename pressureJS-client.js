@@ -10,8 +10,9 @@
 var WebSocket = require('ws');
 
 var utils = require('./lib/utils');
+var testRunner = require('./lib/testRunner');
 
-var ws = new WebSocket('ws://localhost:8081/ui');
+var ws = new WebSocket('ws://localhost:8888/agent');
 
 var config = {};
 var statInterval;
@@ -22,13 +23,15 @@ ws.on('open', function() {
         type : 'init',
         ip : utils.getLocalIPv4(),
         hostname : utils.gethostname(),
+        version : require('./package.json').version,
         info : utils.getSystemInfo()
     };
 
     ws.send(JSON.stringify(msg));
 });
+
 ws.on('message', function(data, flags) {
-    console.log(data);
+//    console.log(data);
     var msg = {};
     try {
         msg = JSON.parse(data);
@@ -38,6 +41,7 @@ ws.on('message', function(data, flags) {
     }
 
     if (msg.type == 'initConfig') {
+        console.log('Initialized with server: v='+ msg.meta.ver);
         config = msg.config;
         init(config);
 
@@ -52,8 +56,51 @@ ws.on('message', function(data, flags) {
             testConfig : msg.testConfig
         };
 
-        runTest(test);
+        testRunner.initTest(test, function (err) {
+            var resMsg = {};
 
+            if (err) {
+                resMsg = {
+                    type : 'initTestFailed',
+                    err : err
+                };
+            }
+            else {
+                resMsg = {
+                    type : 'testReady'
+                };
+            }
+
+            ws.send(JSON.stringify(resMsg));
+        });
+    }
+    else if (msg.type == 'getTestConfig') {
+
+    }
+    else if (msg.type == 'startTest') {
+        var test = {
+            name : msg.name,
+            config : msg.config,
+            testConfig : msg.testConfig
+        };
+
+        testRunner.startTest(test, function (err) {
+            var resMsg = {};
+
+            if (err) {
+                resMsg = {
+                    type : 'startTestFailed',
+                    err : err
+                };
+            }
+            else {
+                resMsg = {
+                    type : 'testStarted'
+                };
+            }
+
+            ws.send(JSON.stringify(resMsg));
+        });
     }
 
 });
@@ -64,14 +111,9 @@ ws.on('close', function () {
 
 function init(cfg) {
     if (cfg.stat_period) {
+        console.log('Will report stats every:'+ cfg.stat_period + ' ms');
         statInterval = setInterval(reportStats, cfg.stat_period);
     }
-}
-
-
-function runTest(test) {
-
-
 }
 
 function reportStats() {
