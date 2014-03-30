@@ -1,0 +1,19 @@
+{
+    "name": "pressureJS-client",
+    "description": "Stress Testing Client",
+    "author": {
+        "name": "Efim Dimenstein",
+        "email": "efim@liveperson.com",
+        "url": "http://www.efimd.com/"
+    },
+    "version": "0.0.1",
+    "dependencies": {
+        "async": "latest",
+        "ws": "latest"
+    },
+    "readme": "README.md",
+    "private": true,
+    "engines": {
+        "node": ">= 0.10.x"
+    }
+}
